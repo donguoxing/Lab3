@@ -1,0 +1,30 @@
+6828 decimal is XXX octal!
+Physical memory: 66556K available, base = 640K, extended = 65532K
+page_alloc_check() succeeded!
+page_check() succeeded!
+boot_mem_check() succeeded!
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+TRAP frame at 0xf0108fa4
+  edi  0x0008ffac
+  esi  0x00010094
+  ebp  0xf0108ff8
+  oesp 0xf0108fc4
+  ebx  0xf0117000
+  edx  0x0000f011
+  ecx  0x00000780
+  eax  0x00000028
+  es   0x----0010
+  ds   0x----0010
+  trap 0x00000003 Breakpoint
+  err  0x00000000
+  eip  0xf0109103
+  cs   0x----0008
+  flag 0x00000006
+  esp  0xf010cf72
+  ss   0x----1aac
+K> exit
+Breakpoint succeeded!
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+K> 
