@@ -28,6 +28,7 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 	
 	// LAB 3: Your code here. (Exercise 7)
+	//user_mem_assert(curenv, s, len, PTE_U|PTE_P);
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -227,6 +228,35 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
+	//panic("syscall not implemented");
+	switch(syscallno)
+	{
+		case SYS_cputs:
+			sys_cputs((const char *)a1, (size_t)a2);
+			return 0;
+		case SYS_cgetc:
+			return sys_cgetc();
+		case SYS_getenvid:
+			return sys_getenvid();
+		case SYS_env_destroy:
+		        return sys_env_destroy((envid_t)a1);
+
+		case SYS_yield:
+			sys_yield();
+			break;
+		case SYS_exofork:
+			return sys_exofork();
+		case SYS_env_set_status:
+			return sys_env_set_status(a1, a2);
+		case SYS_page_alloc:
+			return sys_page_alloc(a1, a2, a3);
+		case SYS_page_map:
+			return sys_page_map(a1, a2, a3, a4, a5);
+		case SYS_page_unmap:
+			return sys_page_unmap(a1, a2);
+		default:
+			return -E_INVAL;
+	}
+	return 0;
 }
 

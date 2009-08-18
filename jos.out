@@ -1,30 +1,63 @@
-6828 decimal is XXX octal!
+6828 decimal is 015254 octal!
 Physical memory: 66556K available, base = 640K, extended = 65532K
 page_alloc_check() succeeded!
 page_check() succeeded!
 boot_mem_check() succeeded!
+[00000000] new env 00001000
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
-TRAP frame at 0xf0108fa4
-  edi  0x0008ffac
-  esi  0x00010094
-  ebp  0xf0108ff8
-  oesp 0xf0108fc4
-  ebx  0xf0117000
-  edx  0x0000f011
-  ecx  0x00000780
-  eax  0x00000028
-  es   0x----0010
-  ds   0x----0010
+Incoming TRAP frame at 0xefffffbc
+TRAP frame at 0xf01af014
+  edi  0x00000000
+  esi  0x00000000
+  ebp  0xeeffdfd0
+  oesp 0xefffffdc
+  ebx  0x00000000
+  edx  0x00000000
+  ecx  0x00000000
+  eax  0xef000000
+  es   0x----0023
+  ds   0x----0023
   trap 0x00000003 Breakpoint
   err  0x00000000
-  eip  0xf0109103
-  cs   0x----0008
-  flag 0x00000006
-  esp  0xf010cf72
-  ss   0x----1aac
-K> exit
-Breakpoint succeeded!
+  eip  0x00800038
+  cs   0x----001b
+  flag 0x00000046
+  esp  0xeeffdfd0
+  ss   0x----0023
+K> backtrace
+Stack backtrace:
+bootstacktop: f0109000
+0: ebp efffff20 eip f0109abc args 00000001 efffff34 f01af014 f018d660
+   kern/monitor.c:0: _Z7monitorP9Trapframe:F(0,20) (0 arg)
+1: ebp efffff80 eip f010ccd4 args f01af014 00000000 00000000 00000000
+   kern/trap.c:0: trap:F(0,20) (0 arg)
+2: ebp efffffb0 eip f010cd7e args efffffbc 00000000 00000000 eeffdfd0
+   {standard input}:0: <unknown> (0 arg)
+3: ebp eeffdfd0 eip 0080007c args 00000000 00000000 00000000 00000000
+   lib/libmain.c:0: libmain:F(0,20) (0 arg)
+[00001000] user fault va eeffe004 ip 00800038
+Incoming TRAP frame at 0xefffffbc
+TRAP frame at 0xf01af014
+  edi  0x00000000
+  esi  0x00000000
+  ebp  0xeeffdfd0
+  oesp 0xefffffdc
+  ebx  0x00000000
+  edx  0x00000000
+  ecx  0x00000000
+  eax  0xef000000
+  es   0x----0023
+  ds   0x----0023
+  trap 0x00000003 Breakpoint
+  err  0x00000000
+  eip  0x00800038
+  cs   0x----001b
+  flag 0x00000046
+  esp  0xeeffdfd0
+  ss   0x----0023
+[00001000] free env 00001000
+Idle loop - nothing more to do!
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
-K> 
+K> Welcome to the JOS kernel monitor (NOT)

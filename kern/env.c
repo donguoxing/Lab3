@@ -69,6 +69,14 @@ void
 env_init(void)
 {
 	// LAB 3: Your code here.
+	memset(envs, 0, sizeof(struct Env) * NENV);
+	for(int i = NENV - 1; i >= 0; i--)
+	{
+		envs[i].env_status = ENV_FREE;	
+		envs[i].env_id = 0;
+		envs[i].env_next = free_envs;
+		free_envs = &envs[i];	
+	}
 }
 
 
@@ -89,8 +97,7 @@ env_mem_init(Env *e)
 
 	// Allocate a page for the page directory
 	if (!(p = page_alloc()))
-		return -E_NO_MEM;
-
+		panic("env_mem_int: page_alloc failed");
 	// Now, set e->env_pgdir and initialize the page directory.
 	//
 	// Hint:
@@ -106,6 +113,12 @@ env_mem_init(Env *e)
 	//	env_pgdir's pp_ref!
 
 	// LAB 3: Your code here.
+	p->pp_ref++;
+ 	e->env_pgdir = (pte_t *) p->data();
+	memset(e->env_pgdir, 0, PGSIZE);
+	size_t size = (NPDENTRIES - PDX(UTOP)) * sizeof(pde_t);
+	memmove(&e->env_pgdir[PDX(UTOP)], &kern_pgdir[PDX(UTOP)], size);
+        //memmove(&(e->env_pgdir[PDX(UTOP)]),(void *)PGADDR(PDX(UVPT),PDX(UVPT),PDX(UTOP)*sizeof(pte_t)),(PDX(0xFFFFFFFF)-PDX(UTOP)+1)*sizeof(pte_t));
 
 	// Recursively insert 'kern_pgdir' in itself as a page table, to form
 	// a read-only virtual page table at virtual address UVPT.
@@ -113,7 +126,6 @@ env_mem_init(Env *e)
 	// following two lines.)
 	// UVPT permissions: kernel RO, user RO
 	e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
-
 	return 0;
 }
 
@@ -149,7 +161,7 @@ env_alloc(Env **newenv_store, envid_t parent_id)
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
 
-	// Clear out all the saved register state,
+	// 
 	// to prevent the register values
 	// of a prior environment inhabiting this Env structure
 	// from "leaking" into our new environment.
@@ -185,11 +197,30 @@ static void
 segment_alloc(Env *e, uintptr_t va, size_t len)
 {
 	// LAB 3: Your code here.
-	// (But only if you need it for load_elf.)
+	// (But only if you need it for load_elf.)It
 	//
 	// Hint: It is easier to use segment_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round len up.
+	// round va down to nearest page address
+	uintptr_t va_start = va - PGOFF(va);
+	// round len up
+	uintptr_t va_end = round_up(va + len, PGSIZE);
+	//uintptr_t va_end = va + (PGOFF(len) == 0 ? len : len + PGSIZE - PGOFF(len + PGSIZE));
+
+	assert(0 == (va_end - va_start) % PGSIZE);
+	int num_pages = (va_end - va_start) / PGSIZE;
+	struct Page *pp = NULL;
+	int i;
+	for(i = 0; i < num_pages; i++)
+	{
+		if (!(pp = page_alloc()))
+			panic("segment_alloc: page_alloc failed");
+		uintptr_t va_addr = va_start + i * PGSIZE;
+		if(page_insert(e->env_pgdir, pp, va_addr, PTE_U | PTE_W) < 0)
+			panic("segment_alloc: page_insert failed");
+		pp = NULL;
+	}
 }
 
 
@@ -244,11 +275,41 @@ load_elf(Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() below.)
 
 	// LAB 3: Your code here.
+	struct Proghdr *ph, *eph;
+	struct Elf *ELFHDR = (struct Elf *) binary;
+	
+	pde_t *cr3_bak = (pde_t *)rcr3();
+	lcr3(PADDR(e->env_pgdir));
 
+	ph = (struct Proghdr *) (binary	+ ELFHDR->e_phoff);
+	eph = ph + ELFHDR->e_phnum;
+	for(; ph < eph; ph++)
+	{
+		if(ph->p_type == ELF_PROG_LOAD)
+		{
+			segment_alloc(e, ph->p_va, ph->p_memsz);
+			memmove((void *)ph->p_va, (void *)(binary + ph->p_offset), ph->p_filesz);
+			if(ph->p_memsz > ph->p_filesz)
+				memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+		}
+	}
+	e->env_tf.tf_eip = ELFHDR->e_entry;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+	Page *p = NULL;
+	// Allocate a page for the page directory
+	if (!(p = page_alloc()))
+	{
+		panic("load_elf: page_alloc failed");
+	}
+	page_insert(e->env_pgdir, p, USTACKTOP - PGSIZE, PTE_P | PTE_U | PTE_W ); 
+	e->env_tf.tf_esp = USTACKTOP;
+
+	//cprintf("DEBUG:Load done,ENTRY:%08x\n",e->env_tf.tf_eip);
+	lcr3((uint32_t)cr3_bak);
+	return;
 }
 
 
@@ -260,6 +321,12 @@ void
 env_create(uint8_t *binary, size_t size)
 {
 	// LAB 3: Your code here.
+	struct Env *env = NULL;
+	int r;
+	r = env_alloc(&env, 0);
+	if(r < 0)
+		panic("env_alloc: %e", r);
+	load_elf(env, binary, size);
 }
 
 
@@ -339,7 +406,7 @@ void
 env_iret(struct Trapframe *tf)
 {
 	__asm __volatile("movl %0,%%esp\n"
-		"\tpopal\n"
+                "\tpopal\n"
 		"\tpopl %%es\n"
 		"\tpopl %%ds\n"
 		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
@@ -368,7 +435,20 @@ env_run(Env *e)
 	//	   e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
-
-        panic("env_run not yet implemented");
+	//    panic("env_run not yet implemented");
+	
+	//Step 1:
+	//curenv = e;
+	//curenv->env_runs++;
+	//lcr3(PADDR(curenv->env_pgdir));
+	//Step 2:
+	//env_iret(&curenv->env_tf);
+	if(curenv != e)
+	{
+		curenv = e;
+		e->env_runs++;
+		lcr3(PADDR(e->env_pgdir));
+	}
+	env_iret(&e->env_tf);
 }
 

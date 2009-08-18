@@ -61,12 +61,49 @@ idt_init(void)
 	extern struct Segdesc gdt[];
 	
 	// LAB 2: Your code here.
-	extern char t_brkpt_lbl[];
+	extern char t_divide_lbl[];// 0 divide error
+	extern char t_debug_lbl[];// 1
+	extern char t_nmi_lbl[];// 2
+	extern char t_brkpt_lbl[];// 3 breakpoint
+	extern char t_oflow_lbl[];// 4
+	extern char t_bound_lbl[];// 5
+	extern char t_illop_lbl[];// 6
+	extern char t_device_lbl[];// 7
+	extern char t_dblflt_lbl[];// 8
+	extern char t_tss_lbl[];// 10
+	extern char t_segnp_lbl[];// 11
+	extern char t_stack_lbl[];// 12
+	extern char t_gpflt_lbl[];// 13
+	extern char t_pgflt_lbl[];// 14
+	extern char t_fperr_lbl[];// 16
+	extern char t_align_lbl[];// 17
+	extern char t_mchk_lbl[];// 18
+	extern char t_simderr_lbl[];// 19
+	extern char t_syscall_lbl[];// 48 system call
+	//extern char t_default_lbl[];// 500
+	SETGATE(idt[0], 0, GD_KT, t_divide_lbl, 0);
+	SETGATE(idt[1], 0, GD_KT, t_debug_lbl, 0);
+	SETGATE(idt[2], 0, GD_KT, t_nmi_lbl, 0);
 	SETGATE(idt[3], 0, GD_KT, t_brkpt_lbl, 3);	
+	SETGATE(idt[4], 0, GD_KT, t_oflow_lbl, 3);
+	SETGATE(idt[5], 0, GD_KT, t_bound_lbl, 0);
+	SETGATE(idt[6], 0, GD_KT, t_illop_lbl, 0);
+	SETGATE(idt[7], 0, GD_KT, t_device_lbl, 0);
+	SETGATE(idt[8], 0, GD_KT, t_dblflt_lbl, 0);
+	SETGATE(idt[10], 0, GD_KT, t_tss_lbl, 0);
+	SETGATE(idt[11], 0, GD_KT, t_segnp_lbl, 0);
+	SETGATE(idt[12], 0, GD_KT, t_stack_lbl, 0);
+	SETGATE(idt[13], 0, GD_KT, t_gpflt_lbl, 0);	
+	SETGATE(idt[14], 0, GD_KT, t_pgflt_lbl, 0);	
+	SETGATE(idt[16], 0, GD_KT, t_fperr_lbl, 0);	
+	SETGATE(idt[17], 0, GD_KT, t_align_lbl, 0);	
+	SETGATE(idt[18], 0, GD_KT, t_mchk_lbl, 0);	
+	SETGATE(idt[19], 0, GD_KT, t_simderr_lbl, 0);	
 
 	// Set a gate for the system call interrupt.
 	// Hint: Must this gate be accessible from userlevel?
 	// LAB 3: Your code here.
+	SETGATE(idt[48], 0, GD_KT, t_syscall_lbl, 3);	
 	
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
@@ -135,7 +172,7 @@ trap(struct Trapframe *tf)
 		print_trapframe_incoming = tf;
 		print_trapframe_copy = &curenv->env_tf;
 		// The trapframe on the stack should be ignored from here on.
-		tf = &curenv->env_tf;
+		//tf = &curenv->env_tf;
 	}
 
 	// Dispatch based on what type of trap occurred
@@ -143,16 +180,32 @@ trap(struct Trapframe *tf)
 
 	// LAB 2: Your code here.
 	case T_BRKPT:
+		tf = &curenv->env_tf;
 		monitor(tf);
 		return;
 	// Handle page faults (T_PGFLT).
 	// LAB 3: Your code here.
-
+	case T_PGFLT:
+		tf = &curenv->env_tf;
+		page_fault_handler(tf);
+		return;
 	// Handle system calls (T_SYSCALL).
 	// LAB 3: Your code here.
+	case T_SYSCALL:
+		tf->tf_regs.reg_eax = syscall(
+			tf->tf_regs.reg_eax,
+			tf->tf_regs.reg_edx,
+			tf->tf_regs.reg_ecx,
+			tf->tf_regs.reg_ebx,
+			tf->tf_regs.reg_edi,
+			tf->tf_regs.reg_esi
+			);
+		return;
 
 	default:
 		// Unexpected trap: The user process or the kernel has a bug.
+		//cprintf("%d \n",tf->tf_trapno);
+		tf = &curenv->env_tf;
 		print_trapframe(tf);
 		if (tf->tf_cs == GD_KT)
 			panic("unhandled trap in kernel");
@@ -178,7 +231,9 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 	
 	// LAB 3: Your code here.
-
+	if((tf->tf_cs & 3) == 0){
+		panic("Page fault in kernel!\n");
+	}
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 

@@ -100,7 +100,7 @@ protcseg:
   movl    $start, %esp
     7c40:	bc 00 7c 00 00       	mov    $0x7c00,%esp
   call bootmain
-    7c45:	e8 f1 00 00 00       	call   7d3b <bootmain>
+    7c45:	e8 ed 00 00 00       	call   7d37 <bootmain>
 
 00007c4a <spin>:
 
@@ -123,12 +123,12 @@ spin:
     7c69:	00 90 90 55 ba f7    	add    %dl,-0x845aa70(%eax)
 
 00007c6c <_Z8waitdiskv>:
-	while (end_va < memsz)
 		*((uint8_t*) end_va++) = 0;
 }
 
 void
 waitdisk(void)
+{
     7c6c:	55                   	push   %ebp
 
 static __inline uint8_t
@@ -139,7 +139,6 @@ inb(int port)
     7c6d:	ba f7 01 00 00       	mov    $0x1f7,%edx
     7c72:	89 e5                	mov    %esp,%ebp
     7c74:	ec                   	in     (%dx),%al
-{
 	// wait for disk reaady
 	while ((inb(0x1F7) & 0xC0) != 0x40)
     7c75:	25 c0 00 00 00       	and    $0xc0,%eax
@@ -154,6 +153,7 @@ inb(int port)
 
 void
 readsect(void *dst, uint32_t offset)
+{
     7c81:	55                   	push   %ebp
     7c82:	ba f7 01 00 00       	mov    $0x1f7,%edx
     7c87:	89 e5                	mov    %esp,%ebp
@@ -181,15 +181,15 @@ outb(int port, uint8_t data)
     7ca0:	b2 f3                	mov    $0xf3,%dl
     7ca2:	88 c8                	mov    %cl,%al
     7ca4:	ee                   	out    %al,(%dx)
-    7ca5:	c1 e9 08             	shr    $0x8,%ecx
-    7ca8:	b2 f4                	mov    $0xf4,%dl
-    7caa:	88 c8                	mov    %cl,%al
+    7ca5:	89 c8                	mov    %ecx,%eax
+    7ca7:	b2 f4                	mov    $0xf4,%dl
+    7ca9:	c1 e8 08             	shr    $0x8,%eax
     7cac:	ee                   	out    %al,(%dx)
-    7cad:	c1 e9 08             	shr    $0x8,%ecx
-    7cb0:	b2 f5                	mov    $0xf5,%dl
-    7cb2:	88 c8                	mov    %cl,%al
+    7cad:	89 c8                	mov    %ecx,%eax
+    7caf:	b2 f5                	mov    $0xf5,%dl
+    7cb1:	c1 e8 10             	shr    $0x10,%eax
     7cb4:	ee                   	out    %al,(%dx)
-    7cb5:	c1 e9 08             	shr    $0x8,%ecx
+    7cb5:	c1 e9 18             	shr    $0x18,%ecx
     7cb8:	b2 f6                	mov    $0xf6,%dl
     7cba:	88 c8                	mov    %cl,%al
     7cbc:	83 c8 e0             	or     $0xffffffe0,%eax
@@ -229,235 +229,229 @@ insl(int port, void *addr, int cnt)
     7ce2:	c3                   	ret    
 
 00007ce3 <_Z7readsegjjjj>:
-}
 
 // Read 'filesz' bytes at 'offset' from kernel into virtual address 'va',
 // then clear the memory from 'va+filesz' up to 'va+memsz' (set it to 0).
 void
 readseg(uint32_t va, uint32_t filesz, uint32_t memsz, uint32_t offset)
+{
     7ce3:	55                   	push   %ebp
     7ce4:	89 e5                	mov    %esp,%ebp
     7ce6:	57                   	push   %edi
     7ce7:	56                   	push   %esi
     7ce8:	53                   	push   %ebx
     7ce9:	83 ec 04             	sub    $0x4,%esp
-    7cec:	8b 4d 08             	mov    0x8(%ebp),%ecx
-{
+    7cec:	8b 75 08             	mov    0x8(%ebp),%esi
 	uint32_t end_va;
 
 	va &= 0xFFFFFF;
 	end_va = va + filesz;
-    7cef:	8b 7d 0c             	mov    0xc(%ebp),%edi
-}
+    7cef:	8b 5d 0c             	mov    0xc(%ebp),%ebx
 
 // Read 'filesz' bytes at 'offset' from kernel into virtual address 'va',
 // then clear the memory from 'va+filesz' up to 'va+memsz' (set it to 0).
 void
 readseg(uint32_t va, uint32_t filesz, uint32_t memsz, uint32_t offset)
-    7cf2:	8b 55 14             	mov    0x14(%ebp),%edx
 {
+    7cf2:	8b 7d 14             	mov    0x14(%ebp),%edi
 	uint32_t end_va;
 
 	va &= 0xFFFFFF;
-    7cf5:	89 c8                	mov    %ecx,%eax
+    7cf5:	89 f0                	mov    %esi,%eax
 	end_va = va + filesz;
 	memsz += va;
 	
 	// round down to sector boundary
 	va &= ~(SECTSIZE - 1);
-    7cf7:	89 cb                	mov    %ecx,%ebx
+    7cf7:	81 e6 00 fe ff 00    	and    $0xfffe00,%esi
 void
 readseg(uint32_t va, uint32_t filesz, uint32_t memsz, uint32_t offset)
 {
 	uint32_t end_va;
 
 	va &= 0xFFFFFF;
-    7cf9:	25 ff ff ff 00       	and    $0xffffff,%eax
+    7cfd:	25 ff ff ff 00       	and    $0xffffff,%eax
 	end_va = va + filesz;
+    7d02:	01 c3                	add    %eax,%ebx
 	memsz += va;
-	
-	// round down to sector boundary
-	va &= ~(SECTSIZE - 1);
-    7cfe:	81 e3 00 fe ff 00    	and    $0xfffe00,%ebx
-readseg(uint32_t va, uint32_t filesz, uint32_t memsz, uint32_t offset)
-{
-	uint32_t end_va;
-
-	va &= 0xFFFFFF;
-	end_va = va + filesz;
-    7d04:	01 c7                	add    %eax,%edi
-	memsz += va;
-    7d06:	03 45 10             	add    0x10(%ebp),%eax
+    7d04:	03 45 10             	add    0x10(%ebp),%eax
 	
 	// round down to sector boundary
 	va &= ~(SECTSIZE - 1);
 
 	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
-    7d09:	c1 ea 09             	shr    $0x9,%edx
-    7d0c:	8d 72 01             	lea    0x1(%edx),%esi
+    7d07:	c1 ef 09             	shr    $0x9,%edi
+    7d0a:	47                   	inc    %edi
 {
 	uint32_t end_va;
 
 	va &= 0xFFFFFF;
 	end_va = va + filesz;
 	memsz += va;
-    7d0f:	89 45 f0             	mov    %eax,-0x10(%ebp)
-    7d12:	eb 10                	jmp    7d24 <_Z7readsegjjjj+0x41>
+    7d0b:	89 45 f0             	mov    %eax,-0x10(%ebp)
+
 	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
 
 	// read sectors
 	while (va < end_va) {
+    7d0e:	eb 10                	jmp    7d20 <_Z7readsegjjjj+0x3d>
 		readsect((uint8_t*) va, offset);
-    7d14:	56                   	push   %esi
+    7d10:	57                   	push   %edi
 		va += SECTSIZE;
 		offset++;
-    7d15:	46                   	inc    %esi
+    7d11:	47                   	inc    %edi
 	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
 
 	// read sectors
 	while (va < end_va) {
 		readsect((uint8_t*) va, offset);
-    7d16:	53                   	push   %ebx
+    7d12:	56                   	push   %esi
 		va += SECTSIZE;
-    7d17:	81 c3 00 02 00 00    	add    $0x200,%ebx
+    7d13:	81 c6 00 02 00 00    	add    $0x200,%esi
 	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
 
 	// read sectors
 	while (va < end_va) {
 		readsect((uint8_t*) va, offset);
-    7d1d:	e8 5f ff ff ff       	call   7c81 <_Z8readsectPvj>
+    7d19:	e8 63 ff ff ff       	call   7c81 <_Z8readsectPvj>
 		va += SECTSIZE;
 		offset++;
-    7d22:	58                   	pop    %eax
-    7d23:	5a                   	pop    %edx
+    7d1e:	58                   	pop    %eax
+    7d1f:	5a                   	pop    %edx
 
 	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
 
 	// read sectors
 	while (va < end_va) {
-    7d24:	39 fb                	cmp    %edi,%ebx
-    7d26:	72 ec                	jb     7d14 <_Z7readsegjjjj+0x31>
-    7d28:	eb 04                	jmp    7d2e <_Z7readsegjjjj+0x4b>
+    7d20:	39 de                	cmp    %ebx,%esi
+    7d22:	72 ec                	jb     7d10 <_Z7readsegjjjj+0x2d>
+    7d24:	eb 04                	jmp    7d2a <_Z7readsegjjjj+0x47>
 		offset++;
 	}
 
 	// clear bss segment
 	while (end_va < memsz)
 		*((uint8_t*) end_va++) = 0;
-    7d2a:	c6 07 00             	movb   $0x0,(%edi)
-    7d2d:	47                   	inc    %edi
+    7d26:	c6 03 00             	movb   $0x0,(%ebx)
+    7d29:	43                   	inc    %ebx
 		va += SECTSIZE;
 		offset++;
 	}
 
 	// clear bss segment
 	while (end_va < memsz)
-    7d2e:	3b 7d f0             	cmp    -0x10(%ebp),%edi
-    7d31:	72 f7                	jb     7d2a <_Z7readsegjjjj+0x47>
+    7d2a:	3b 5d f0             	cmp    -0x10(%ebp),%ebx
+    7d2d:	72 f7                	jb     7d26 <_Z7readsegjjjj+0x43>
 		*((uint8_t*) end_va++) = 0;
 }
-    7d33:	8d 65 f4             	lea    -0xc(%ebp),%esp
-    7d36:	5b                   	pop    %ebx
-    7d37:	5e                   	pop    %esi
-    7d38:	5f                   	pop    %edi
-    7d39:	5d                   	pop    %ebp
-    7d3a:	c3                   	ret    
+    7d2f:	8d 65 f4             	lea    -0xc(%ebp),%esp
+    7d32:	5b                   	pop    %ebx
+    7d33:	5e                   	pop    %esi
+    7d34:	5f                   	pop    %edi
+    7d35:	5d                   	pop    %ebp
+    7d36:	c3                   	ret    
 
-00007d3b <bootmain>:
-void readsect(void *addr, uint32_t sectornum);
+00007d37 <bootmain>:
 void readseg(uint32_t va, uint32_t filesz, uint32_t memsz, uint32_t offset);
 
 extern "C" {
 void
 bootmain(void)
-    7d3b:	55                   	push   %ebp
-    7d3c:	89 e5                	mov    %esp,%ebp
-    7d3e:	56                   	push   %esi
-    7d3f:	53                   	push   %ebx
 {
+    7d37:	55                   	push   %ebp
+    7d38:	89 e5                	mov    %esp,%ebp
+    7d3a:	56                   	push   %esi
+    7d3b:	53                   	push   %ebx
 	struct Proghdr *ph, *eph;
 
 	// read 1st page off disk
 	readseg((uint32_t) ELFHDR, PAGESIZE, PAGESIZE, 0);
-    7d40:	6a 00                	push   $0x0
-    7d42:	68 00 10 00 00       	push   $0x1000
-    7d47:	68 00 10 00 00       	push   $0x1000
-    7d4c:	68 00 00 01 00       	push   $0x10000
-    7d51:	e8 8d ff ff ff       	call   7ce3 <_Z7readsegjjjj>
+    7d3c:	6a 00                	push   $0x0
+    7d3e:	68 00 10 00 00       	push   $0x1000
+    7d43:	68 00 10 00 00       	push   $0x1000
+    7d48:	68 00 00 01 00       	push   $0x10000
+    7d4d:	e8 91 ff ff ff       	call   7ce3 <_Z7readsegjjjj>
 
 	// is this a valid ELF?
 	if (ELFHDR->e_magic != ELF_MAGIC)
-    7d56:	83 c4 10             	add    $0x10,%esp
-    7d59:	81 3d 00 00 01 00 7f 	cmpl   $0x464c457f,0x10000
-    7d60:	45 4c 46 
-    7d63:	75 41                	jne    7da6 <bootmain+0x6b>
+    7d52:	83 c4 10             	add    $0x10,%esp
+    7d55:	81 3d 00 00 01 00 7f 	cmpl   $0x464c457f,0x10000
+    7d5c:	45 4c 46 
+    7d5f:	75 42                	jne    7da3 <bootmain+0x6c>
 		goto bad;
 
 	// load each program segment (ignores ph flags)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
-    7d65:	a1 1c 00 01 00       	mov    0x1001c,%eax
-    7d6a:	8d 98 00 00 01 00    	lea    0x10000(%eax),%ebx
+    7d61:	8b 1d 1c 00 01 00    	mov    0x1001c,%ebx
 	eph = ph + ELFHDR->e_phnum;
-    7d70:	0f b7 05 2c 00 01 00 	movzwl 0x1002c,%eax
-    7d77:	c1 e0 05             	shl    $0x5,%eax
-    7d7a:	8d 34 03             	lea    (%ebx,%eax,1),%esi
-    7d7d:	eb 17                	jmp    7d96 <bootmain+0x5b>
+    7d67:	0f b7 05 2c 00 01 00 	movzwl 0x1002c,%eax
+	// is this a valid ELF?
+	if (ELFHDR->e_magic != ELF_MAGIC)
+		goto bad;
+
+	// load each program segment (ignores ph flags)
+	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
+    7d6e:	81 c3 00 00 01 00    	add    $0x10000,%ebx
+	eph = ph + ELFHDR->e_phnum;
+    7d74:	c1 e0 05             	shl    $0x5,%eax
+    7d77:	8d 34 03             	lea    (%ebx,%eax,1),%esi
 	for (; ph < eph; ph++)
+    7d7a:	eb 17                	jmp    7d93 <bootmain+0x5c>
 		readseg(ph->p_va, ph->p_filesz, ph->p_memsz, ph->p_offset);
-    7d7f:	ff 73 04             	pushl  0x4(%ebx)
-    7d82:	ff 73 14             	pushl  0x14(%ebx)
-    7d85:	ff 73 10             	pushl  0x10(%ebx)
-    7d88:	ff 73 08             	pushl  0x8(%ebx)
+    7d7c:	ff 73 04             	pushl  0x4(%ebx)
+    7d7f:	ff 73 14             	pushl  0x14(%ebx)
+    7d82:	ff 73 10             	pushl  0x10(%ebx)
+    7d85:	ff 73 08             	pushl  0x8(%ebx)
 		goto bad;
 
 	// load each program segment (ignores ph flags)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
 	eph = ph + ELFHDR->e_phnum;
 	for (; ph < eph; ph++)
-    7d8b:	83 c3 20             	add    $0x20,%ebx
+    7d88:	83 c3 20             	add    $0x20,%ebx
 		readseg(ph->p_va, ph->p_filesz, ph->p_memsz, ph->p_offset);
-    7d8e:	e8 50 ff ff ff       	call   7ce3 <_Z7readsegjjjj>
+    7d8b:	e8 53 ff ff ff       	call   7ce3 <_Z7readsegjjjj>
 		goto bad;
 
 	// load each program segment (ignores ph flags)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
 	eph = ph + ELFHDR->e_phnum;
 	for (; ph < eph; ph++)
-    7d93:	83 c4 10             	add    $0x10,%esp
-    7d96:	39 f3                	cmp    %esi,%ebx
-    7d98:	72 e5                	jb     7d7f <bootmain+0x44>
+    7d90:	83 c4 10             	add    $0x10,%esp
+    7d93:	39 f3                	cmp    %esi,%ebx
+    7d95:	72 e5                	jb     7d7c <bootmain+0x45>
 		readseg(ph->p_va, ph->p_filesz, ph->p_memsz, ph->p_offset);
 
 	// call the entry point from the ELF header
 	// note: does not return!
 	((void (*)(void)) (ELFHDR->e_entry & 0xFFFFFF))();
-    7d9a:	a1 18 00 01 00       	mov    0x10018,%eax
-    7d9f:	25 ff ff ff 00       	and    $0xffffff,%eax
-    7da4:	ff d0                	call   *%eax
+    7d97:	a1 18 00 01 00       	mov    0x10018,%eax
+    7d9c:	25 ff ff ff 00       	and    $0xffffff,%eax
+    7da1:	ff d0                	call   *%eax
 }
 
 static __inline void
 outw(int port, uint16_t data)
 {
 	__asm __volatile("outw %0,%w1" : : "a" (data), "d" (port));
-    7da6:	ba 00 8a 00 00       	mov    $0x8a00,%edx
-    7dab:	b8 00 8a ff ff       	mov    $0xffff8a00,%eax
-    7db0:	66 ef                	out    %ax,(%dx)
-    7db2:	b8 00 8e ff ff       	mov    $0xffff8e00,%eax
-    7db7:	66 ef                	out    %ax,(%dx)
+    7da3:	ba 00 8a 00 00       	mov    $0x8a00,%edx
+    7da8:	b8 00 8a ff ff       	mov    $0xffff8a00,%eax
+    7dad:	66 ef                	out    %ax,(%dx)
+    7daf:	b8 00 8e ff ff       	mov    $0xffff8e00,%eax
+    7db4:	66 ef                	out    %ax,(%dx)
 
 bad:
 	outw(0x8A00, 0x8A00);
 	outw(0x8A00, 0x8E00);
 	/* boot.S will spin for us */
 }
-    7db9:	8d 65 f8             	lea    -0x8(%ebp),%esp
-    7dbc:	5b                   	pop    %ebx
-    7dbd:	5e                   	pop    %esi
-    7dbe:	5d                   	pop    %ebp
-    7dbf:	c3                   	ret    
+    7db6:	8d 65 f8             	lea    -0x8(%ebp),%esp
+    7db9:	5b                   	pop    %ebx
+    7dba:	5e                   	pop    %esi
+    7dbb:	5d                   	pop    %ebp
+    7dbc:	c3                   	ret    

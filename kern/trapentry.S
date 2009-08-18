@@ -62,19 +62,20 @@ idttbl:
 	.align 2
 _alltraps:
 	#Build trap frame
-	push %ds
-	push %es
+	pushl    %ds 
+	pushl    %es
 	pushal
 	#Set up data segments
-	movw $GD_KD, %ax
+	movl $GD_KD, %eax
 	movw %ax, %ds
 	movw %ax, %es
 	#Call trap(tf), where tf = %esp
-	push %esp
+	pushl %esp
 	call trap
-	pop %esp
 	#Clean up pushes and ret
+	addl $4, %esp
 	popal
-	pop %es
-	pop %ds
+	popl    %es
+	popl    %ds
+	addl $8, %esp
 	iret

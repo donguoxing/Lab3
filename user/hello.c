@@ -1,6 +1,5 @@
 // hello, world
 #include <inc/lib.h>
-
 void
 umain(int, char **)
 {

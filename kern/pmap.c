@@ -100,12 +100,12 @@ void
 mem_init(void)
 {
 	uint32_t cr0;
-	size_t n;
+	size_t n, m;
 	int r;
 	struct Page *pp;
 	
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	//panic("mem_init: This function is not finished\n");
 
 	// Find out how much memory the machine has ('npages' & 'n_base_pages')
 	i386_mem_detect();
@@ -124,8 +124,8 @@ mem_init(void)
 	// Allocate 'envs', an array of size 'NENV' of 'Env' structures.
 	//
 	// LAB 3: Your code here.
-
-
+	m = sizeof(struct Env) * NENV;
+	envs = (Env *)boot_alloc(m);
 	// Now that we've allocated the 'pages' array, initialize it
 	// by putting all free physical pages onto a list.  After this point,
 	// all further memory management will go through the page_* functions.
@@ -147,7 +147,6 @@ mem_init(void)
 
 	// Check page mapping functions.
 	page_check();
-
 
 	// Map the kernel stack at virtual address 'KSTACKTOP-KSTKSIZE'.
 	// A large range of virtual memory, [KSTACKTOP-PTSIZE, KSTACKTOP),
@@ -184,7 +183,8 @@ mem_init(void)
 	// All permissions are kernel R, user R.
 	//
 	// LAB 3: Your code here.
-
+	page_map_segment(kern_pgdir, UPAGES, n, PADDR(pages), PTE_P | PTE_U);
+	page_map_segment(kern_pgdir, UENVS, m, PADDR(envs), PTE_P | PTE_U);
 	// Check that the initial page directory has been set up correctly.
 	boot_mem_check();
 
@@ -237,7 +237,6 @@ mem_init(void)
 	lcr3(PADDR(kern_pgdir));
 }
 
-
 // This simple physical memory allocator is used only while JOS is setting
 // up its virtual memory system.  page_alloc() is the real allocator.
 //
@@ -271,14 +270,14 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 	// Hole 'n' bytes memory
+	// Return updated pointer points
+	v = (void *) nextfree;
 	nextfree += n;
 	// Align nextfree
 	nextfree = round_up (nextfree, PGSIZE);
 	// Panic when out of memory
 	if((unsigned int) nextfree < (unsigned int) end)
 	panic("boot_alloc: out of memory.\n");
-	// Return updated pointer points after 'n' bytes
-	v = (void *) nextfree;
 	return v;
 }
 
@@ -340,7 +339,7 @@ page_init(void)
 	pend = PGNUM(PADDR(boot_alloc(0))) + 1;
 	for (size_t i = 0; i < npages; i++)
 	{
-	        // Initialize the page structure
+	    // Initialize the page structure
 		// Mark page0 in use
 		if(i == 0)
 		{
@@ -411,6 +410,7 @@ page_free(struct Page *pp)
 	//erase page memory
 	memset(pp->data(), 0xCD, sizeof(*pp));
 
+	//LIST_INSERT_HEAD(&free_page, pp, pp_link);
 }
 
 // Decrement the reference count on a page.
@@ -619,11 +619,68 @@ static uintptr_t user_mem_check_addr;
 // and -E_FAULT otherwise.
 //
 // Hint: The TA solution uses pgdir_walk.
-int
+/*int
 user_mem_check(Env *env, uintptr_t va, size_t len, int perm)
 {
 	// LAB 3: Your code here. (Exercise 6)
+        if(va+len > ULIM){
+		user_mem_check_addr = (uintptr_t)(va+len);
+		return -E_FAULT;
+	}
+	uint32_t i;
+	for(i = PPN(va); i <= PPN(va+len); i++){
+		pte_t *ppte = 0,pte = 0;
+		struct Page * p = page_lookup(env->env_pgdir, (void *)(i<<PTXSHIFT), &ppte);
+	        if(p == NULL){
+			user_mem_check_addr = (i<<PTXSHIFT)+PGOFF(va);
+			return -E_FAULT;
+		}
+		pte = *ppte;
+		if((pte & PTE_P) && (pte & PTE_U) >= (perm & PTE_U) && (pte & PTE_W) >= (perm & PTE_W))
+		{
+			continue;
+		}else{
+			user_mem_check_addr = (i<<PTXSHIFT)+PGOFF(va);
+			return -E_FAULT;
+		}
+	}	return 0;(void *)
 
+}*/
+int
+user_mem_check(struct Env *env, uintptr_t va, size_t len, int perm)
+{
+	size_t i;
+	pte_t *pte;
+
+	perm |= PTE_P;
+	user_mem_check_addr = (uintptr_t) va;
+	for (i = 0; i < len; i += PGSIZE) {
+		user_mem_check_addr += i;
+
+		if (user_mem_check_addr >= ULIM)
+			return -E_FAULT;
+
+		if ((perm & PTE_U) &&
+		    (!(env->env_pgdir[PDX(user_mem_check_addr)] & PTE_U)))
+			return -E_FAULT;
+
+		if ((perm & PTE_W) &&
+		    (!(env->env_pgdir[PDX(user_mem_check_addr)] & PTE_W)))
+			return -E_FAULT;
+
+		pte = pgdir_walk(env->env_pgdir,
+				  user_mem_check_addr, 0);
+		if (!pte)
+			return -E_FAULT;
+
+		if ((perm & PTE_U) && (!(*pte & PTE_U)))
+			return -E_FAULT;
+
+		if ((perm & PTE_W) && (!(*pte & PTE_W)))
+			return -E_FAULT;
+	}
+
+	user_mem_check_addr = 0;
 	return 0;
 }
 
@@ -682,6 +739,9 @@ page_alloc_check()
 	pp0 = page_alloc();
 	pp1 = page_alloc();
 	pp2 = page_alloc();
+	//assert(pp0);
+	//assert(pp1);
+	//assert(pp2);
 	assert(pp0);
 	assert(pp1 && pp1 != pp0);
 	assert(pp2 && pp2 != pp1 && pp2 != pp0);
@@ -695,7 +755,15 @@ page_alloc_check()
 	page_free(pp0);
 	page_free(pp1);
 	page_free(pp2);
-
+	/*	
+	while(1)
+	{
+		cprintf("Here???");
+		pp = page_alloc();
+		assert(pp);
+		cprintf("Here!!!");
+	}
+	*/
 	cprintf("page_alloc_check() succeeded!\n");
 }
 
@@ -907,6 +975,15 @@ page_check(void)
 	page_free(pp1);
 	page_free(pp2);
 	
+	/*
+	while(1)
+	{
+		cprintf("Here???");
+		pp = page_alloc();
+		assert(pp);
+		cprintf("Here!!!");
+	}
+	*/
 	cprintf("page_check() succeeded!\n");
 }
 
