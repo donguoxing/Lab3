@@ -56,26 +56,26 @@ idttbl:
        TRAPHANDLER_NOEC(t_mchk_lbl,T_MCHK)
        TRAPHANDLER_NOEC(t_simderr_lbl,T_SIMDERR)
        TRAPHANDLER_NOEC(t_syscall_lbl,T_SYSCALL)
-	
+
 .text
 	.globl _alltraps
 	.align 2
 _alltraps:
 	#Build trap frame
-	pushl    %ds 
-	pushl    %es
+	push %ds
+	push %es
 	pushal
 	#Set up data segments
-	movl $GD_KD, %eax
+	movw $GD_KD, %ax
 	movw %ax, %ds
 	movw %ax, %es
 	#Call trap(tf), where tf = %esp
-	pushl %esp
+	push %esp
 	call trap
 	#Clean up pushes and ret
 	addl $4, %esp
 	popal
-	popl    %es
-	popl    %ds
+	pop %es
+	pop %ds
 	addl $8, %esp
 	iret

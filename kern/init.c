@@ -10,6 +10,7 @@
 #include <kern/kclock.h>
 #include <kern/trap.h>
 #include <kern/env.h>
+#include <kern/sched.h>
 
 
 extern "C" {
@@ -47,11 +48,19 @@ i386_init(void)
 	ENV_CREATE2(TEST, TESTSIZE);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_hello);
+	ENV_CREATE(user_yield);
+	ENV_CREATE(user_yield);
+//	ENV_CREATE(user_hello);
+//	ENV_CREATE(user_softint);
+//	ENV_CREATE(user_dumbfork);
+//	ENV_CREATE(user_buggyhello);
+//	ENV_CREATE(user_evilhello);
 #endif // TEST*
 
 	// We only have one user environment for now, so just run it.
 	env_run(&envs[0]);
+	sched_yield();
+
 
 	// Drop into the kernel monitor.
 	while (1)
