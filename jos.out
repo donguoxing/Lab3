@@ -7,7 +7,7 @@ boot_mem_check() succeeded!
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
 Incoming TRAP frame at 0xefffffbc
-TRAP frame at 0xf01af014
+TRAP frame at 0xf01b6014
   edi  0x00000000
   esi  0x00000000
   ebp  0xeeffdfd0
@@ -28,17 +28,17 @@ TRAP frame at 0xf01af014
 K> backtrace
 Stack backtrace:
 bootstacktop: f0109000
-0: ebp efffff20 eip f0109abc args 00000001 efffff34 f01af014 f018d660
-   kern/monitor.c:0: _Z7monitorP9Trapframe:F(0,20) (0 arg)
-1: ebp efffff80 eip f010ccd4 args f01af014 00000000 00000000 00000000
-   kern/trap.c:0: trap:F(0,20) (0 arg)
-2: ebp efffffb0 eip f010cd7e args efffffbc 00000000 00000000 eeffdfd0
+0: ebp efffff00 eip f0109aa5 args 00000001 efffff18 f01b6014 f40baeec
+   kern/monitor.c:0: _Z7monitorP9Trapframe:F(0,21) (0 arg)
+1: ebp efffff70 eip f010cc4c args f01b6014 00000000 00000000 00000000
+   kern/trap.c:0: trap:F(0,21) (0 arg)
+2: ebp efffffb0 eip f010ccf5 args efffffbc 00000000 00000000 eeffdfd0
    {standard input}:0: <unknown> (0 arg)
 3: ebp eeffdfd0 eip 0080007c args 00000000 00000000 00000000 00000000
-   lib/libmain.c:0: libmain:F(0,20) (0 arg)
+   lib/libmain.c:0: libmain:F(0,21) (0 arg)
 [00001000] user fault va eeffe004 ip 00800038
 Incoming TRAP frame at 0xefffffbc
-TRAP frame at 0xf01af014
+TRAP frame at 0xf01b6014
   edi  0x00000000
   esi  0x00000000
   ebp  0xeeffdfd0
