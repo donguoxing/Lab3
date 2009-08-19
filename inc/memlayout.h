@@ -127,8 +127,8 @@
 // Where user programs generally begin
 #define UTEXT		(2*PTSIZE)
 
-// Used for temporary page mappings.  Typed 'void*' for convenience
-#define UTEMP		((void*) PTSIZE)
+// Used for temporary page mappings
+#define UTEMP		(PTSIZE)
 // Used for temporary page mappings for the user page-fault handler
 // (should not conflict with other temporary page mappings)
 #define PFTEMP		(UTEMP + PTSIZE - PGSIZE)

@@ -43,6 +43,7 @@ bootmain(void)
 {
 	struct Proghdr *ph, *eph;
 
+
 	// read 1st page off disk
 	readseg((uint32_t) ELFHDR, PAGESIZE, PAGESIZE, 0);
 

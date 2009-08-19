@@ -22,4 +22,14 @@
 #define IRQ_IDE         14
 #define IRQ_ERROR       19
 
+#ifndef __ASSEMBLER__
+
+#include <inc/types.h>
+#include <inc/x86.h>
+
+extern uint16_t irq_mask_8259A;
+void pic_init(void);
+void irq_setmask_8259A(uint16_t mask);
+
+#endif // !__ASSEMBLER__
 #endif // !JOS_KERN_PICIRQ_H

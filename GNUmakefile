@@ -156,6 +156,10 @@ grade: $(LABSETUP)grade.sh
 	$(MAKE) all
 	bash $(LABSETUP)grade.sh
 
+grade-%: $(LABSETUP)grade.sh
+	$(MAKE) all
+	bash $(LABSETUP)grade.sh $*
+
 tarball: realclean
 	@echo + mk lab$(LAB)-$(USER).tar.gz
 	$(V)egrep=`(test -x /bin/egrep && echo /bin/egrep) || echo grep -E`; tar cf - `find . -type f -print | $$egrep -v '/(CVS|\.svn|\.git|jos\.out|jos\.log)(/|$$)' | grep -v '/lab[0-9].*\.tar\.gz$$'` | gzip > lab$(LAB)-$(USER).tar.gz

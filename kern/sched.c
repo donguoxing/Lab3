@@ -4,12 +4,7 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
-static inline void
-run_if_runnable(struct Env *e)
-{
-		if (e->env_status == ENV_RUNNABLE)
-					env_run(e);
-}
+
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
@@ -22,20 +17,7 @@ sched_yield(void)
 	// is runnable.  If NO env is runnable, fall through to the idle loop.
 
 	// LAB 3: Your code here. (Exercise 9)
-	int i;
 
-	if (!curenv) {
-		for (i = 1; i < NENV; i++)
-		run_if_runnable(&envs[i]);
-		} 
-	else {
-		for (i = ENVX(curenv->env_id) + 1; i < NENV; i++)
-			run_if_runnable(&envs[i]);
-		for (i = 1; i < ENVX(curenv->env_id); i++)
-			run_if_runnable(&envs[i]);
-		
-		run_if_runnable(curenv);
-		}
 
 	// If we reach this point, we know no environment is runnable.
 	// Operating systems model this with an IDLE LOOP, which absorbs
@@ -47,11 +29,7 @@ sched_yield(void)
 	// JOS has no such sources of interrupts.
 	// Thus, once we reach the idle loop, the OS will never run any other
 	// process again.
-	if (envs[0].env_status == ENV_RUNNABLE)
-		env_run(&envs[0]);
-	else {
 	cprintf("Idle loop - nothing more to do!\n");
 	while (1)
 		monitor(NULL);
-	}
 }

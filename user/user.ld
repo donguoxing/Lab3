@@ -50,19 +50,17 @@ SECTIONS
 		*(.rodata .rodata.* .gnu.linkonce.r.*)
 	}
 
-	/* Adjust the address for the data segment to the next page */
-	. = ALIGN(0x1000);
-
 	/* Constructors: functions that should be called automatically
 	   when the kernel is loaded.  Used by C++ */
-	PROVIDE(sctors = .);
-
 	.ctors : {
-		KEEP(*(SORT(.ctors.*)))
-		KEEP(*(.ctors))
+		PROVIDE(sctors = .);
+		KEEP(*(SORT(.ctors.*)));
+		KEEP(*(.ctors));
+		PROVIDE(ectors = .);
 	}
 
-	PROVIDE(ectors = .);
+	/* Adjust the address for the data segment to the next page */
+	. = ALIGN(0x1000);
 
 	/* The data segment */
 	.data : {

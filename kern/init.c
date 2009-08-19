@@ -11,6 +11,7 @@
 #include <kern/trap.h>
 #include <kern/env.h>
 #include <kern/sched.h>
+#include <kern/picirq.h>
 
 
 extern "C" {
@@ -43,24 +44,19 @@ i386_init(void)
 	// Lab 3 user environment initialization functions
 	env_init();
 
+	// Lab 4 multitasking initialization functions
+	pic_init();
+	kclock_init();
+	
 #ifdef TEST
 	// Don't touch -- used by grading script!
-	ENV_CREATE2(TEST, TESTSIZE);
+	ENV_CREATE2(TEST, TESTSIZE)
 #else
 	// Touch all you want.
-	ENV_CREATE(user_yield);
-	ENV_CREATE(user_yield);
-//	ENV_CREATE(user_hello);
-//	ENV_CREATE(user_softint);
-//	ENV_CREATE(user_dumbfork);
-//	ENV_CREATE(user_buggyhello);
-//	ENV_CREATE(user_evilhello);
-#endif // TEST*
-
-	// We only have one user environment for now, so just run it.
-	env_run(&envs[0]);
+	ENV_CREATE(user_primes);
+#endif	// TEST*
+	// Schedule and run the first user environment!
 	sched_yield();
-
 
 	// Drop into the kernel monitor.
 	while (1)

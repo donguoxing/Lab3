@@ -69,15 +69,6 @@ void
 env_init(void)
 {
 	// LAB 3: Your code here.
-	int i;
-	memset(envs, 0, sizeof(struct Env) * NENV);
-//	LIST_INIT(&free_envs);
-	for(i = NENV-1; i>=0; i--){
-		envs[i].env_status = ENV_FREE;
-		envs[i].env_id = 0;
-		envs[i].env_next = free_envs;
-		free_envs = &envs[i];
-	}
 }
 
 
@@ -92,13 +83,13 @@ env_init(void)
 static int
 env_mem_init(Env *e)
 {
-//	unsigned i;
-//	int r;
+	unsigned i;
+	int r;
 	Page *p = NULL;
 
 	// Allocate a page for the page directory
 	if (!(p = page_alloc()))
-		panic("env_mem_init: page_alloc failed");
+		return -E_NO_MEM;
 
 	// Now, set e->env_pgdir and initialize the page directory.
 	//
@@ -115,18 +106,10 @@ env_mem_init(Env *e)
 	//	env_pgdir's pp_ref!
 
 	// LAB 3: Your code here.
-	p->pp_ref++;
-	e->env_pgdir = (pte_t*) p->data();
-	memset(e->env_pgdir,0,PGSIZE);
-	
-	size_t size = (NPDENTRIES - PDX(UTOP)) * sizeof(pde_t);
-	memmove(&e->env_pgdir[PDX(UTOP)], &kern_pgdir[PDX(UTOP)], size);
-	// Recursively insert 'kern_pgdir' in itself as a page table, to form
+
+	// Recursively insert 'e->env_pgdir' in itself as a page table, to form
 	// a read-only virtual page table at virtual address UVPT.
-	// (For now, you don't have understand the greater purpose of the
-	// following two lines.)
 	// UVPT permissions: kernel RO, user RO
-//	e->env_pgdir[PDX(VPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
 	e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
 
 	return 0;
@@ -182,6 +165,15 @@ env_alloc(Env **newenv_store, envid_t parent_id)
 	e->env_tf.tf_cs = GD_UT | 3;
 	// You will set e->env_tf.tf_eip later.
 
+	// Enable interrupts while in user mode.
+	// LAB 4: Your code here.
+
+	// Clear the page fault handler until user installs one.
+	e->env_pgfault_upcall = 0;
+
+	// Also clear the IPC receiving flag.
+	e->env_ipc_recving = 0;
+
 	// commit the allocation
 	free_envs = e->env_next;
 	*newenv_store = e;
@@ -205,24 +197,6 @@ segment_alloc(Env *e, uintptr_t va, size_t len)
 	// Hint: It is easier to use segment_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round len up.
-	//round va down to nearest page address
-	uintptr_t va_start = va - PGOFF(va);
-	//round len up
-	uintptr_t va_end = round_up(va + len, PGSIZE);
-
-	assert(0 == (va_end - va_start) % PGSIZE);
-	int num_pages = (va_end -va_start) / PGSIZE;
-	struct Page *pp = NULL;
-	int i;
-	for(i = 0; i < num_pages; i++)
-	{
-		if(!(pp = page_alloc()))
-			panic("segment_alloc: page_alloc failed");
-		uintptr_t va_addr = va_start + i*PGSIZE;
-		if(page_insert(e->env_pgdir, pp, va_addr, PTE_U | PTE_W) < 0)
-			panic("segment_alloc: page_insert failed");
-		pp = NULL;
-	}	
 }
 
 
@@ -277,42 +251,11 @@ load_elf(Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() below.)
 
 	// LAB 3: Your code here.
-	struct Proghdr *ph, *eph;
-	struct Elf *elfbin = (struct Elf *) binary;
 
-	pde_t *cr3_bak = (pde_t *)rcr3();
-	lcr3(PADDR(e->env_pgdir));
-
-	if(elfbin->e_magic != ELF_MAGIC)
-		panic("Bad elf format!");
-
-	//load each program segment(ignores ph flags)
-	ph = (struct Proghdr *)(binary + elfbin->e_phoff);
-	eph = ph + elfbin->e_phnum;
-
-	for (; ph<eph; ph++) {
-		if(ph->p_type == ELF_PROG_LOAD){
-			segment_alloc(e, ph->p_va, ph->p_memsz);
-			memmove((void *)ph->p_va,(void *)(binary+ph->p_offset),ph->p_filesz);
-			if(ph->p_memsz > ph->p_filesz)
-				memset((void *)(ph->p_va+ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
-		}
-	}
-	e->env_tf.tf_eip = elfbin->e_entry;
-	
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
-	struct Page *p = NULL;
-	if(!(p=page_alloc())) 
-		panic("page alloc failed");
- 
-	page_insert(e->env_pgdir, p, USTACKTOP-PGSIZE,PTE_P|PTE_U|PTE_W);
-	e->env_tf.tf_esp = USTACKTOP;
-
-	lcr3((uint32_t)cr3_bak);
-	return;
 }
 
 
@@ -324,12 +267,6 @@ void
 env_create(uint8_t *binary, size_t size)
 {
 	// LAB 3: Your code here.
-	int r;
-	struct Env *newenv = NULL;
-	if((r = env_alloc(&newenv, 0)) < 0){
-		panic("env_alloc in env_create:%e", r);
-	}
-	load_elf(newenv,binary, size);
 }
 
 
@@ -438,15 +375,7 @@ env_run(Env *e)
 	//	   e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
-	if(curenv != e) {
-		curenv = e;
-		e->env_runs++;
-		lcr3(PADDR(e->env_pgdir));
-	}
 
-//	cprintf("DEBUG: I'm going to invoke env_pop_tf\n");
-	env_iret(&e->env_tf);
-
- //       panic("env_run not yet implemented");
+        panic("env_run not yet implemented");
 }
 

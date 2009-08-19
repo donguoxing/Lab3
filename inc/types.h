@@ -40,6 +40,10 @@ typedef int32_t ssize_t;
 // off_t is used for file offsets and lengths.
 typedef int32_t off_t;
 
+// Program IDs returned by sys_program_lookup are positive numbers
+// greater than or equal to PROGRAM_OFFSET.
+#define PROGRAM_OFFSET 0x40000000
+
 
 // min and max operations
 template <typename T>

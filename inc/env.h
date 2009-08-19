@@ -46,6 +46,16 @@ struct Env {
                                         // (kernel virtual address)
 	struct Trapframe env_tf;	// Saved registers
 	uint32_t env_runs;		// Number of times environment has run
+
+	// Exception handling
+	void *env_pgfault_upcall;	// page fault upcall entry point
+
+	// Lab 4 IPC
+	bool env_ipc_recving;		// env is blocked receiving
+	uintptr_t env_ipc_dstva;	// va at which to map received page
+	int32_t env_ipc_value;		// data value sent to us 
+	envid_t env_ipc_from;		// envid of the sender	
+	int env_ipc_perm;		// perm of page mapping received
 };
 
 #endif // !JOS_INC_ENV_H

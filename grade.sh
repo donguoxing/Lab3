@@ -1,16 +1,22 @@
 #! /bin/bash
 
 verbose=false
+fixtests=
 
-if [ "x$1" = "x-v" ]
-then
-	verbose=true
-	out=/dev/stdout
-	err=/dev/stderr
+if [ "x$1" = "x-v" ]; then
+    verbose=true
+    out=/dev/stdout
+    err=/dev/stderr
+    shift 1
 else
-	out=/dev/null
-	err=/dev/null
+    out=/dev/null
+    err=/dev/null
 fi
+
+for i in "$@"; do
+    fixtests="$i
+$fixtests"
+done
 
 if gmake --version >/dev/null 2>&1; then make=gmake; else make=make; fi
 
@@ -32,13 +38,6 @@ psleep () {
 }
 
 run () {
-	# Find the address of the kernel readline function,
-	# which the kernel monitor uses to read commands interactively.
-	brkaddr=`grep 'readline$' obj/kernel.sym | sed -e's/ .*$//g'`
-	#echo "brkaddr $brkaddr"
-
-	readline_hack=`grep 'readline_hack$' obj/kernel.sym | sed -e's/ .*$//g' | sed -e's/^f//'`
-
 	cp /dev/null jos.in
 	cp /dev/null jos.out
 
@@ -160,125 +159,141 @@ runtest1 () {
 		runtest1_defs="DEFS+='$1' $runtest1_defs"
 		shift
 	done
+	if [ -n "$fixtests" ]; then
+	    if echo "$fixtests" | grep "^$tag\$" >/dev/null 2>&1; then :; else
+		return
+	    fi
+	fi
 	runtest "$tag" "DEFS='-DTEST=_binary_obj_user_${prog}_start' DEFS+='-DTESTSIZE=_binary_obj_user_${prog}_size' $runtest1_defs" "$@"
 }
 
 
 
 score=0
-
-runtest1 hello \
-	'.00000000. new env 00001000' \
-	'hello, world' \
-	'i am environment 00001000' \
-	'.00001000. exiting gracefully' \
-	'.00001000. free env 00001000' \
-	'Idle loop - nothing more to do!'
-
-# the [00001000] tags should have [] in them, but that's 
-# a regular expression reserved character, and i'll be damned if
-# I can figure out how many \ i need to add to get through 
-# however many times the shell interprets this string.  sigh.
-
-runtest1 buggyhello \
-	'.00001000. user_mem_check va 00000...' \
-	'.00001000. free env 00001000'
-
-runtest1 evilhello \
-	'.00001000. user_mem_check va f0100...' \
-	'.00001000. free env 00001000'
-
-runtest1 divzero \
-	! '1/0 is ........!' \
-	'Incoming TRAP frame at 0xefffff..' \
-	'  trap 0x00000000 Divide error' \
-	'  eip  0x008.....' \
-	'  ss   0x----0023' \
-	'.00001000. free env 00001000'
-
-runtest1 breakpoint \
-	'Welcome to the JOS kernel monitor!' \
-	'Incoming TRAP frame at 0xefffffbc' \
-	'  trap 0x00000003 Breakpoint' \
-	'  eip  0x008.....' \
-	'  ss   0x----0023' \
-	! '.00001000. free env 00001000'
-
-runtest1 softint \
-	'Welcome to the JOS kernel monitor!' \
-	'Incoming TRAP frame at 0xefffffbc' \
-	'  trap 0x0000000d General Protection' \
-	'  eip  0x008.....' \
-	'  ss   0x----0023' \
-	'.00001000. free env 00001000'
-
-runtest1 badsegment \
-	'Incoming TRAP frame at 0xefffffbc' \
-	'  trap 0x0000000d General Protection' \
-	'  err  0x00000028' \
-	'  eip  0x008.....' \
-	'  ss   0x----0023' \
-	'.00001000. free env 00001000'
+timeout=10
 
 runtest1 faultread \
 	! 'I read ........ from location 0!' \
 	'.00001000. user fault va 00000000 ip 008.....' \
-	'Incoming TRAP frame at 0xefffffbc' \
+	'TRAP frame at.*' \
 	'  trap 0x0000000e Page Fault' \
 	'  err  0x00000004' \
 	'.00001000. free env 00001000'
 
-runtest1 faultreadkernel \
-	! 'I read ........ from location 0xf0100000!' \
-	'.00001000. user fault va f0100000 ip 008.....' \
-	'Incoming TRAP frame at 0xefffffbc' \
-	'  trap 0x0000000e Page Fault' \
-	'  err  0x00000005' \
-	'.00001000. free env 00001000' \
-
 runtest1 faultwrite \
 	'.00001000. user fault va 00000000 ip 008.....' \
-	'Incoming TRAP frame at 0xefffffbc' \
+	'TRAP frame at.*' \
 	'  trap 0x0000000e Page Fault' \
 	'  err  0x00000006' \
 	'.00001000. free env 00001000'
 
-runtest1 faultwritekernel \
-	'.00001000. user fault va f0100000 ip 008.....' \
-	'Incoming TRAP frame at 0xefffffbc' \
-	'  trap 0x0000000e Page Fault' \
-	'  err  0x00000007' \
+runtest1 faultdie \
+	'i faulted at va deadbeef, err 6' \
+	'.00001000. exiting gracefully' \
+	'.00001000. free env 00001000' 
+
+runtest1 faultalloc \
+	'fault deadbeef' \
+	'this string was faulted in at deadbeef' \
+	'fault cafebffe' \
+	'fault cafec000' \
+	'this string was faulted in at cafebffe' \
+	'.00001000. exiting gracefully' \
 	'.00001000. free env 00001000'
 
-runtest1 testbss \
-	'Making sure bss works right...' \
-	'Yes, good.  Now doing a wild write off the end...' \
-	'.00001000. user fault va 00c..... ip 008.....' \
+runtest1 faultallocbad \
+	'.00001000. user_mem_check va deadbeef' \
+	'.00001000. free env 00001000' 
+
+runtest1 faultnostack \
+	'.00001000. user_mem_check va eeffff..' \
 	'.00001000. free env 00001000'
 
-pts=30
-runtest1 dumbfork \
+runtest1 faultbadhandler \
+	'.00001000. user_mem_check va eeffef..' \
+	'.00001000. free env 00001000'
+
+runtest1 faultevilhandler \
+	'.00001000. user_mem_check va eeffef..' \
+	'.00001000. free env 00001000'
+
+runtest1 forktree \
+	'....: I am .0.' \
+	'....: I am .1.' \
+	'....: I am .000.' \
+	'....: I am .100.' \
+	'....: I am .110.' \
+	'....: I am .111.' \
+	'....: I am .011.' \
+	'....: I am .001.' \
+	'.00002001. exiting gracefully' \
+	'.0000100.. exiting gracefully' \
+	'.0000100.. exiting gracefully' \
+	'.0000300.. exiting gracefully' \
+	'.0000200.. free env 0000200.'
+
+[ -z "$fixtests" ] && echo PART 1 SCORE: $score/45
+
+pts=10
+runtest1 spin \
+	'.00000000. new env 00001000' \
+	'I am the parent.  Forking the child...' \
+	'.00001000. new env 00001001' \
+	'I am the parent.  Running the child...' \
+	'I am the child.  Spinning...' \
+	'I am the parent.  Killing the child...' \
+	'.00001000. destroying 00001001' \
+	'.00001000. free env 00001001' \
+	'.00001000. exiting gracefully' \
+	'.00001000. free env 00001000'
+
+runtest1 pingpong \
 	'.00000000. new env 00001000' \
 	'.00001000. new env 00001001' \
-	'0: I am the parent!' \
-	'9: I am the parent!' \
-	'0: I am the child!' \
-	'9: I am the child!' \
-	'19: I am the child!' \
+	'send 0 from 1000 to 1001' \
+	'1001 got 0 from 1000' \
+	'1000 got 1 from 1001' \
+	'1001 got 8 from 1000' \
+	'1000 got 9 from 1001' \
+	'1001 got 10 from 1000' \
 	'.00001000. exiting gracefully' \
 	'.00001000. free env 00001000' \
 	'.00001001. exiting gracefully' \
-	'.00001001. free env 00001001'
+	'.00001001. free env 00001001' \
 
-pts=10
-keystrokes='backtrace;'
-runtest1 -tag 'breakpoint [backtrace]' breakpoint \
-	'^Stack backtrace:' \
-	' *user/breakpoint.c:.*' \
-	' *lib/libmain.c:.*' \
-	' *lib/entry.S:.*'
+runtest1 primes \
+	'.00000000. new env 00001000' \
+	'.00001000. new env 00001001' \
+	'2 .00001001. new env 00001002' \
+	'3 .00001002. new env 00001003' \
+	'5 .00001003. new env 00001004' \
+	'7 .00001004. new env 00001005' \
+	'11 .00001005. new env 00001006' 
 
-echo Score: $score/100
+[ -z "$fixtests" ] && echo PART 1+2 SCORE: $score/75
+
+pts=15
+runtest1 spawnhello \
+	'.00000000. new env 00001000' \
+	'i am parent environment 00001000' \
+	'.00001000. new env 00001001' \
+	'hello, world' \
+	'i am environment 00001001' \
+	'.00001001. exiting gracefully'
+
+runtest1 spawninit \
+	'.00000000. new env 00001000' \
+	'i am parent environment 00001000' \
+	'.00001000. new env 00001001' \
+	'init: running' \
+	'init: data seems okay' \
+	'init: bss seems okay' \
+	'init: args: .init. .one. .two.' \
+	'init: exiting' \
+	'.00001001. exiting gracefully'
+
+[ -z "$fixtests" ] && echo PART 1+2+3 SCORE: $score/105
 
 
 
+exit 0

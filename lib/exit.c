@@ -1,4 +1,3 @@
-
 #include <inc/lib.h>
 
 void
