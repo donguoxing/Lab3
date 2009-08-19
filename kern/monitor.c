@@ -26,6 +26,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Run a stack backtrace", mon_backtrace},
+	{ "exit", "exits the kernel monitor, Returning from the interrupt", mon_exit},
 };
 #define NCOMMANDS (int) (sizeof(commands)/sizeof(commands[0]))
 
@@ -62,10 +64,56 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+        uint32_t *ebp;
+	extern char bootstacktop[];
+	int i = 0;
+	Eipdebuginfo info;
+	cprintf("Stack backtrace:\n");
+	ebp = (uint32_t *)read_ebp();
+	cprintf("bootstacktop: %08x\n", (uint32_t *)bootstacktop);
+	while(ebp < (uint32_t *)bootstacktop )
+	{
+        cprintf("%d: ebp %08x eip %08x args %08x %08x %08x %08x\n", i, ebp, *(ebp+1), *(ebp+2), *(ebp+2+1),*(ebp+2+2), *(ebp+2+3));
+	debuginfo_eip(*(ebp+1), &info);
+	cprintf("   %s:%d: %s (%d arg)\n", info.eip_file, info.eip_line, info.eip_fn_name, info.eip_fn_narg);
+	i++;
+	if(*ebp == 0 )
+	{
+		cprintf("the final value of ebp: %08x\n", ebp);
+		break;
+	}
+	ebp = (uint32_t *)*ebp;
+	}
+	if(tf != NULL)
+	print_trapframe(tf);
+	else
+	cprintf("no breakpoint\n");
+	//ebp = (uint32_t *)tf;
+	//while(*ebp)
+	//{
+	//cprintf("0x%08x ", ebp);
+	//ebp++;
+	//}
 	return 0;
 }
 
-
+int
+mon_exit(int argc, char **argv, struct Trapframe *tf)
+{
+	 int ef;
+	 ef = read_eflags();
+	 if (tf->tf_eflags & 0x100)
+	 tf->tf_eflags &= ~(ef | 1 << 8); /* Clear TF to disable single-step mode */
+	 __asm __volatile("movl %0,%%esp\n"
+	     		"\tpopal\n"
+	         	"\tpopl %%es\n"
+		     	"\tpopl %%ds\n"
+		        "\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
+			"\tiret"
+			: : "g" (tf) : "memory");
+	panic("iret failed"); /* mostly to placate the compiler */
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
