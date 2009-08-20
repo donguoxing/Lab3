@@ -69,6 +69,7 @@ void
 env_init(void)
 {
 	// LAB 3: Your code here.
+	int i;
 	memset(envs, 0, sizeof(struct Env) * NENV);
 	for(i = NENV-1; i>=0; i--){
 		envs[i].env_status = ENV_FREE;

@@ -1,5 +1,6 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
+#include <inc/string.h>
 #include <inc/assert.h>
 
 #include <kern/pmap.h>
@@ -167,7 +168,8 @@ trap(struct Trapframe *tf)
 		assert(curenv);
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
-		tf = &curenv->env_tf;
+		// change the code position. 		
+		//tf = &curenv->env_tf;  
 	}
 
 	// Dispatch based on what type of trap occurred
@@ -200,9 +202,14 @@ trap(struct Trapframe *tf)
 		
 	// Handle clock and serial interrupts.
 	// LAB 4: Your code here.
+	case IRQ_OFFSET:
+		tf = &curenv->env_tf;
+		sched_yield();
+		break;
 
 	case IRQ_OFFSET + IRQ_KBD: /* keyboard interrupt */
 		// Ignore keyboard interrupts for now.
+		tf = &curenv->env_tf;
 		break;
 
 	case IRQ_OFFSET + 8:  case IRQ_OFFSET + 9:
@@ -211,6 +218,7 @@ trap(struct Trapframe *tf)
 	case IRQ_OFFSET + 14: case IRQ_OFFSET + 15:
 		// The automatic-EOI mode doesn't work on the slave (IRQs
 		// 8-15), so we must mark EOI explicitly.
+		tf = &curenv->env_tf;
 		outb(IO_PIC2, 0x60 + (tf->tf_trapno & 7));
 		break;
 
@@ -284,6 +292,43 @@ page_fault_handler(struct Trapframe *tf)
 	
 	// LAB 4: Your code here.
 
+	pde_t *cr3_bak = (pde_t *)rcr3();
+	if (curenv->env_pgfault_upcall) {
+		uintptr_t addr;
+		struct UTrapframe utf;
+
+		// fill utf
+		memset(&utf, 0, sizeof(utf));
+		utf.utf_fault_va = fault_va;
+		utf.utf_err = tf->tf_err;
+		utf.utf_regs = tf->tf_regs;
+		utf.utf_eip = tf->tf_eip;
+		utf.utf_eflags = tf->tf_eflags;
+		utf.utf_esp = tf->tf_esp;
+
+		// too slow?
+		lcr3(PADDR(curenv->env_pgdir));
+		if ((tf->tf_esp >= UXSTACKTOP - PGSIZE) &&
+		    (tf->tf_esp < UXSTACKTOP)) {
+			// pgfault handler faulted
+			addr = tf->tf_esp - 4 - sizeof(utf);
+		} else {
+			// expected case
+			addr = UXSTACKTOP - sizeof(utf);
+		}
+
+		user_mem_assert(curenv, (const void *) addr,
+				sizeof(utf), PTE_W);
+
+		memcpy((void *) addr, &utf, sizeof(utf));
+
+		lcr3((uint32_t)cr3_bak);
+
+		// go!
+		curenv->env_tf.tf_eip =(uintptr_t) curenv->env_pgfault_upcall;
+		curenv->env_tf.tf_esp = addr;
+		env_run(curenv);
+	}
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);

@@ -1,63 +1,33 @@
-6828 decimal is 015254 octal!
+6828 decimal is XXX octal!
 Physical memory: 66556K available, base = 640K, extended = 65532K
 page_alloc_check() succeeded!
 page_check() succeeded!
 boot_mem_check() succeeded!
+enabled interrupts: 1 2 4
+	Setup timer interrupts via 8259A
+enabled interrupts: 0 1 2 4
+	unmasked timer interrupt
 [00000000] new env 00001000
+i am parent environment 00001000
+(unknown program): user panic at lib/spawn.c:92: spawn unimplemented!
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
-Incoming TRAP frame at 0xefffffbc
-TRAP frame at 0xf01b6014
+TRAP frame at 0xf020b014
   edi  0x00000000
   esi  0x00000000
-  ebp  0xeeffdfd0
+  ebp  0xeeffdf50
   oesp 0xefffffdc
   ebx  0x00000000
-  edx  0x00000000
-  ecx  0x00000000
-  eax  0xef000000
+  edx  0xeeffde08
+  ecx  0x00000001
+  eax  0x00000001
   es   0x----0023
   ds   0x----0023
   trap 0x00000003 Breakpoint
   err  0x00000000
-  eip  0x00800038
+  eip  0x00800168
   cs   0x----001b
-  flag 0x00000046
-  esp  0xeeffdfd0
+  flag 0x00000096
+  esp  0xeeffdf38
   ss   0x----0023
-K> backtrace
-Stack backtrace:
-bootstacktop: f0109000
-0: ebp efffff00 eip f0109aa5 args 00000001 efffff18 f01b6014 f40baeec
-   kern/monitor.c:0: _Z7monitorP9Trapframe:F(0,21) (0 arg)
-1: ebp efffff70 eip f010cc4c args f01b6014 00000000 00000000 00000000
-   kern/trap.c:0: trap:F(0,21) (0 arg)
-2: ebp efffffb0 eip f010ccf5 args efffffbc 00000000 00000000 eeffdfd0
-   {standard input}:0: <unknown> (0 arg)
-3: ebp eeffdfd0 eip 0080007c args 00000000 00000000 00000000 00000000
-   lib/libmain.c:0: libmain:F(0,21) (0 arg)
-[00001000] user fault va eeffe004 ip 00800038
-Incoming TRAP frame at 0xefffffbc
-TRAP frame at 0xf01b6014
-  edi  0x00000000
-  esi  0x00000000
-  ebp  0xeeffdfd0
-  oesp 0xefffffdc
-  ebx  0x00000000
-  edx  0x00000000
-  ecx  0x00000000
-  eax  0xef000000
-  es   0x----0023
-  ds   0x----0023
-  trap 0x00000003 Breakpoint
-  err  0x00000000
-  eip  0x00800038
-  cs   0x----001b
-  flag 0x00000046
-  esp  0xeeffdfd0
-  ss   0x----0023
-[00001000] free env 00001000
-Idle loop - nothing more to do!
-Welcome to the JOS kernel monitor!
-Type 'help' for a list of commands.
 K> Welcome to the JOS kernel monitor (NOT)

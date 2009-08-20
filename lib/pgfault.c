@@ -21,6 +21,7 @@ void (*_pgfault_handler)(struct UTrapframe *utf);
 // at UXSTACKTOP), and tell the kernel to call the assembly-language
 // _pgfault_upcall routine when a page fault occurs.
 //
+/*
 void
 set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 {
@@ -29,10 +30,43 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 	if (_pgfault_handler == 0) {
 		// First time through!
 		// LAB 4: Your code here.
-		panic("set_pgfault_handler not implemented");
+		r = sys_page_alloc(0, (void*) (UXSTACKTOP - PGSIZE),
+				     PTE_P|PTE_U|PTE_W);
+		if (r)
+			return;
+		sys_env_set_pgfault_upcall(0, (void *)_pgfault_upcall);
+		//panic("set_pgfault_handler not implemented");
 	}
 
 	// Save handler pointer for assembly to call.
 	_pgfault_handler = handler;
 }
+*/
+void
+set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
+{
+        int r;
 
+
+        if (_pgfault_handler == 0) {
+                // First time through!
+                // LAB 4: Your code here.
+                //panic("set_pgfault_handler not implemented");
+                int ret ;
+                envid_t eid = sys_getenvid();
+                if((ret = sys_page_alloc(eid,
+                                        (void *)(UXSTACKTOP-PGSIZE),
+                                        PTE_P|PTE_U|PTE_W)) < 0){
+                        panic("set_pgfault_handler failed when calling sys_page_alloc:%d\n",ret);
+                        return;
+                }
+                if((ret = sys_env_set_pgfault_upcall(eid,(void *)_pgfault_upcall))<0){
+                        panic("set_pgfault_handler failed when calling sys_env_set...:%d\n",ret);
+                        return;
+                }
+        }
+
+
+        // Save handler pointer for assembly to call.
+        _pgfault_handler = handler;
+}

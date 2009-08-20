@@ -4,7 +4,12 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
-
+static inline void
+run_if_runnable(struct Env *e)
+{
+			if (e->env_status == ENV_RUNNABLE)
+									env_run(e);
+}
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
