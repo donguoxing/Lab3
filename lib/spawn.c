@@ -4,6 +4,7 @@
 #define UTEMP2			(UTEMP + PGSIZE)
 #define UTEMP3			(UTEMP2 + PGSIZE)
 
+#define UTEMP2USTACK(addr) ((uint32_t) (addr) + (USTACKTOP - PGSIZE) - UTEMP)
 
 // Helper functions for spawn.
 static int init_stack(envid_t child, const char **argv, uintptr_t *init_esp);
@@ -56,18 +57,38 @@ spawn(const char* progname, const char** argv)
 	//   - Look up the program using sys_program_lookup.
 	//     Return an error code if no such program exists.
 	//
+	envid_t child, envid;
+	int pid, err;
+	pid = sys_program_lookup(progname,sizeof(progname)); 
+	if(pid < 0)
+		return pid;
 	//   - Set 'elf_size' to the program's ELF binary size using
 	//     sys_program_size.
 	//
+	elf_size = sys_program_size(pid);
 	//   - Map the program's first page at UTEMP using the map_page helper.
 	//
+	envid = sys_getenvid();
+	map_page(envid, pid, 0, (void *)UTEMP, PTE_U|PTE_P);
+
 	//   - Copy the 512-byte ELF header from UTEMP into elf_header_buf.
 	//
+	memcpy(elf_header_buf, (void *)UTEMP, 512);
 	//   - Read the ELF header, as you have before, and sanity check its
 	//     magic number.  (Check out your load_elf for hints!)
 	//
+	struct Elf *elfbin = (struct Elf *)elf_header_buf;
+    if (elfbin->e_magic != ELF_MAGIC)
+    	return -E_INVAL;
 	//   - Use sys_exofork() to create a new environment.
 	//
+	child = sys_exofork();
+	if (child < 0)
+		panic("sys_exofork: %e", child);
+	if (child == 0) {
+		return 0;
+	}
+
 	//   - Set child_tf to an initial struct Trapframe for the child.
 	//     Hint: The sys_exofork() system call has already created
 	//     a good starting point.  It is accessible at
@@ -75,21 +96,50 @@ spawn(const char* progname, const char** argv)
 	//     Hint: You must do something with the program's entry point.
 	//     What?  (See load_elf!)
 	//
+	child_tf = envs[ENVX(child)].env_tf;
+	//child_tf.tf_regs = envs[ENVX(child)].env_tf.tf_regs;
+	child_tf.tf_eip = elfbin->e_entry;
+	//sys_env_set_trapframe(child, &child_tf);
+	
 	//   - Call the init_stack() function to set up the initial stack
 	//     page for the child environment.
 	//
+	if((err = init_stack(child,argv,&(child_tf.tf_esp))) < 0){
+	sys_env_destroy(child);
+	return err;
+	}
 	//   - Map all of the program's segments that are of p_type
 	//     ELF_PROG_LOAD into the new environment's address space.
 	//     Use the load_segment() helper function below.
 	//     All the 'struct Proghdr' structures will be accessible
 	//     within the first 512 bytes of the ELF.
 	//
+	// load each program segment (ignores ph flags)
+	struct Proghdr *ph, *eph;
+    ph = (struct Proghdr *) ((uint8_t *) elfbin + elfbin->e_phoff);
+	eph = ph + elfbin->e_phnum;
+	for(; ph < eph; ph++){
+		if(ph->p_type != ELF_PROG_LOAD){
+			continue;
+		}
+		assert(ph->p_filesz <= ph->p_memsz);
+		load_segment(child, pid, ph, elfbin, elf_size);
+	}
 	//   - Call sys_env_set_trapframe(child, &child_tf) to set up the
 	//     correct initial eip and esp values in the child.
 	//
+	if((err = sys_env_set_trapframe(child, &child_tf)) < 0){
+		sys_env_destroy(child);
+		return err;
+	}
 	//   - Start the child process running with sys_env_set_status().
-	//
-	panic("spawn unimplemented!");
+	///
+	if((err = sys_env_set_status(child,ENV_RUNNABLE)) < 0){
+		sys_env_destroy(child);
+		return err;
+	}
+	//panic("spawn unimplemented!");
+	return 0;
 }
 
 // Spawn, taking command-line arguments array directly on the stack.
@@ -156,8 +206,14 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 	//	  this page mapped at USTACKTOP - PGSIZE.  Check out the
 	//	  utemp_addr_to_ustack_addr function defined above.
 	//
+	for(i = 0; i < argc; i++){
+		argv_store[i] = UTEMP2USTACK(string_store);
+		strcpy(string_store,argv[i]);
+		string_store += strlen(argv[i])+1;
+	}
 	//	* Set 'argv_store[argc]' to 0 to null-terminate the args array.
 	//
+	argv_store[argc] = 0;
 	//	* Push two more words onto the child's stack below 'args',
 	//	  containing the argc and argv parameters to be passed
 	//	  to the child's umain() function.
@@ -165,12 +221,14 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 	//	  (Again, argv should use an address valid in the child's
 	//	  environment.)
 	//
+	argv_store[-1] = UTEMP2USTACK(argv_store);
+	argv_store[-2] = argc;
 	//	* Set *init_esp to the initial stack pointer for the child,
 	//	  (Again, use an address valid in the child's environment.)
 	//
 	// LAB 4: Your code here.
-	*init_esp = USTACKTOP;	// Change this!
-
+	//*init_esp = USTACKTOP;	// Change this!
+	*init_esp = UTEMP2USTACK(argv_store-2);
 	// After completing the stack, map it into the child's address space
 	// and unmap it from ours!
 	if ((r = sys_page_map(0, (void*) UTEMP, child, (void*) (USTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0)
@@ -205,6 +263,15 @@ load_segment(envid_t child, int id, struct Proghdr* ph,
 	//	the same program will share the same copy of the program text.
 	//      Be sure to map the program text read-only in the child.
 	//
+	int err;
+	if((ph->p_flags & ELF_PROG_FLAG_WRITE) == 0){
+		uint32_t i;
+		for(i = round_down(ph->p_offset,PGSIZE); i < round_up(ph->p_offset+ph->p_memsz,PGSIZE); i+= PGSIZE){
+			void *dstva = (void *)(round_down(ph->p_va,PGSIZE)+i-round_down(ph->p_offset,PGSIZE));
+			map_page(child, id, i, dstva, PTE_U|PTE_P);
+		}
+	}
+	else{
 	//    * If the ELF segment flags DO include ELF_PROG_FLAG_WRITE,
 	//	then the segment contains read/write data and bss.
 	//	As with load_elf(), such an ELF segment
@@ -222,15 +289,38 @@ load_segment(envid_t child, int id, struct Proghdr* ph,
 	//	the child, and unmap the page at UTEMP2.
 	//	Look at load_elf() and fork() for inspiration.
 	//
+
+		uint32_t i;
+		for(i = round_down(ph->p_offset,PGSIZE); i < round_up(ph->p_offset+ph->p_memsz,PGSIZE); i+= PGSIZE)
+		{
+			if ((err = sys_page_alloc(0, (void*) UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+				return err;
+			//deal with bss
+			if((i - round_down(ph->p_offset,PGSIZE)) <= ph->p_filesz ){
+				int size, offset;
+				offset = i - round_down(ph->p_offset, PGSIZE);
+				//modify the size
+				size = (ph->p_filesz - offset) > PGSIZE ? PGSIZE : (ph->p_filesz - offset); 
+				map_page(0, id, i, (void *)(UTEMP2), PTE_U|PTE_P);
+				memcpy((void *)UTEMP, (void *)(UTEMP2), size);
+			}	
+			//memset((void *)(UTEMP2),0,PGSIZE);
+			void *dstva = (void *)(round_down(ph->p_va,PGSIZE)+i-round_down(ph->p_offset,PGSIZE));
+			sys_page_map(0,(void *)UTEMP,child,dstva,PTE_P|PTE_U|PTE_W);
+			sys_page_unmap(0,(void*)UTEMP);
+		}
+
+
 	// Note: All of the segment addresses or lengths above
 	// might be non-page-aligned, so you must deal with
 	// these non-page-aligned values appropriately.
 	// The ELF linker does, however, guarantee that no two segments
 	// will overlap on the same page; and it guarantees that
 	// PGOFF(ph->p_offset) == PGOFF(ph->p_va).
-	
+	}
+	return 0;
 	// LAB 4: Your code here.
-	panic("load_segment not completed!\n");
-	return -1;
+	//panic("load_segment not completed!\n");
+	//return -1;
 }
 

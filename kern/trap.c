@@ -85,6 +85,23 @@ idt_init(void)
 	extern char t_mchk_lbl[];	//18
 	extern char t_simderr_lbl[];	//19
 	extern char t_syscall_lbl[];	//48 system call
+	
+	extern char int_nr_0[];
+	extern char int_nr_1[];
+	extern char int_nr_2[];
+	extern char int_nr_3[];
+	extern char int_nr_4[];
+	extern char int_nr_5[];
+	extern char int_nr_6[];
+	extern char int_nr_7[];
+	extern char int_nr_8[];
+	extern char int_nr_9[];
+	extern char int_nr_10[];
+	extern char int_nr_11[];
+	extern char int_nr_12[];
+	extern char int_nr_13[];
+	extern char int_nr_14[];
+	extern char int_nr_15[];
 
 	SETGATE(idt[0], 0, GD_KT, t_divide_lbl, 0);
 	SETGATE(idt[1], 0, GD_KT, t_debug_lbl, 0);
@@ -110,6 +127,22 @@ idt_init(void)
 	// LAB 3: Your code here.
 	SETGATE(idt[48], 0, GD_KT, t_syscall_lbl, 3);
 
+	SETGATE(idt[IRQ_OFFSET], 0, GD_KT, int_nr_0, 0)
+	SETGATE(idt[IRQ_OFFSET+1], 0, GD_KT, int_nr_1, 0)
+	SETGATE(idt[IRQ_OFFSET+2], 0, GD_KT, int_nr_2, 0)
+	SETGATE(idt[IRQ_OFFSET+3], 0, GD_KT, int_nr_3, 0)
+	SETGATE(idt[IRQ_OFFSET+4], 0, GD_KT, int_nr_4, 0)
+	SETGATE(idt[IRQ_OFFSET+5], 0, GD_KT, int_nr_5, 0)
+	SETGATE(idt[IRQ_OFFSET+6], 0, GD_KT, int_nr_6, 0)
+	SETGATE(idt[IRQ_OFFSET+7], 0, GD_KT, int_nr_7, 0)
+	SETGATE(idt[IRQ_OFFSET+8], 0, GD_KT, int_nr_8, 0)
+	SETGATE(idt[IRQ_OFFSET+9], 0, GD_KT, int_nr_9, 0)
+	SETGATE(idt[IRQ_OFFSET+10], 0, GD_KT, int_nr_10, 0)
+	SETGATE(idt[IRQ_OFFSET+11], 0, GD_KT, int_nr_11, 0)
+	SETGATE(idt[IRQ_OFFSET+12], 0, GD_KT, int_nr_12, 0)
+	SETGATE(idt[IRQ_OFFSET+13], 0, GD_KT, int_nr_13, 0)
+	SETGATE(idt[IRQ_OFFSET+14], 0, GD_KT, int_nr_14, 0)
+	SETGATE(idt[IRQ_OFFSET+15], 0, GD_KT, int_nr_15, 0)
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	ts.ts_esp0 = KSTACKTOP;
@@ -209,7 +242,6 @@ trap(struct Trapframe *tf)
 
 	case IRQ_OFFSET + IRQ_KBD: /* keyboard interrupt */
 		// Ignore keyboard interrupts for now.
-		tf = &curenv->env_tf;
 		break;
 
 	case IRQ_OFFSET + 8:  case IRQ_OFFSET + 9:
@@ -238,10 +270,8 @@ trap(struct Trapframe *tf)
 	// If we made it to this point, then no other environment was
 	// scheduled, so we should return to the current environment
 	// if doing so makes sense.
-	if (curenv && curenv->env_status == ENV_RUNNABLE)
-		env_run(curenv);
-	else
-		panic("unhandled trap in user mode");
+	assert(curenv && curenv->env_status == ENV_RUNNABLE);
+	env_run(curenv);
 }
 }
 
@@ -292,7 +322,7 @@ page_fault_handler(struct Trapframe *tf)
 	
 	// LAB 4: Your code here.
 
-	pde_t *cr3_bak = (pde_t *)rcr3();
+	//pde_t *cr3_bak = (pde_t *)rcr3();
 	if (curenv->env_pgfault_upcall) {
 		uintptr_t addr;
 		struct UTrapframe utf;
@@ -306,6 +336,7 @@ page_fault_handler(struct Trapframe *tf)
 		utf.utf_eflags = tf->tf_eflags;
 		utf.utf_esp = tf->tf_esp;
 
+		pde_t *cr3_bak = (pde_t *)rcr3();
 		// too slow?
 		lcr3(PADDR(curenv->env_pgdir));
 		if ((tf->tf_esp >= UXSTACKTOP - PGSIZE) &&

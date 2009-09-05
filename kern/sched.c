@@ -7,8 +7,8 @@
 static inline void
 run_if_runnable(struct Env *e)
 {
-			if (e->env_status == ENV_RUNNABLE)
-									env_run(e);
+	if (e->env_status == ENV_RUNNABLE)
+		env_run(e);
 }
 // Choose a user environment to run and run it.
 void
@@ -25,17 +25,17 @@ sched_yield(void)
 	int i;
 
 	if (!curenv) {
-		for (i = 1; i < NENV; i++)
-		run_if_runnable(&envs[i]);
-		} 
-	else {
+		for (i = 0; i < NENV; i++)
+			run_if_runnable(&envs[i]);
+	} else {
 		for (i = ENVX(curenv->env_id) + 1; i < NENV; i++)
 			run_if_runnable(&envs[i]);
-		for (i = 1; i < ENVX(curenv->env_id); i++)
+
+		for (i = 0; i < ENVX(curenv->env_id); i++)
 			run_if_runnable(&envs[i]);
-		
+
 		run_if_runnable(curenv);
-		}
+	}
 
 	// If we reach this point, we know no environment is runnable.
 	// Operating systems model this with an IDLE LOOP, which absorbs

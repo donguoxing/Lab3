@@ -3,7 +3,7 @@
 #include <inc/mmu.h>
 #include <inc/memlayout.h>
 #include <inc/trap.h>
-
+#include <kern/picirq.h>
 
 ###################################################################
 # exceptions/interrupts
@@ -56,6 +56,22 @@ idttbl:
        TRAPHANDLER_NOEC(t_mchk_lbl,T_MCHK)
        TRAPHANDLER_NOEC(t_simderr_lbl,T_SIMDERR)
        TRAPHANDLER_NOEC(t_syscall_lbl,T_SYSCALL)
+	   TRAPHANDLER_NOEC(int_nr_0, IRQ_OFFSET)
+	   TRAPHANDLER_NOEC(int_nr_1, IRQ_OFFSET+1)
+	   TRAPHANDLER_NOEC(int_nr_2, IRQ_OFFSET+2)
+	   TRAPHANDLER_NOEC(int_nr_3, IRQ_OFFSET+3)
+	   TRAPHANDLER_NOEC(int_nr_4, IRQ_OFFSET+4)
+	   TRAPHANDLER_NOEC(int_nr_5, IRQ_OFFSET+5)
+	   TRAPHANDLER_NOEC(int_nr_6, IRQ_OFFSET+6)
+	   TRAPHANDLER_NOEC(int_nr_7, IRQ_OFFSET+7)
+	   TRAPHANDLER_NOEC(int_nr_8, IRQ_OFFSET+8)
+	   TRAPHANDLER_NOEC(int_nr_9, IRQ_OFFSET+9)
+	   TRAPHANDLER_NOEC(int_nr_10, IRQ_OFFSET+10)
+	   TRAPHANDLER_NOEC(int_nr_11, IRQ_OFFSET+11)
+	   TRAPHANDLER_NOEC(int_nr_12, IRQ_OFFSET+12)
+	   TRAPHANDLER_NOEC(int_nr_13, IRQ_OFFSET+13)
+	   TRAPHANDLER_NOEC(int_nr_14, IRQ_OFFSET+14)
+	   TRAPHANDLER_NOEC(int_nr_15, IRQ_OFFSET+15)
 
 .text
 	.globl _alltraps

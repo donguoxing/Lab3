@@ -49,6 +49,18 @@ struct Registers {		// CPU registers, as pushed by 'pusha'.
 	uint32_t reg_edx;
 	uint32_t reg_ecx;
 	uint32_t reg_eax;
+	Registers& operator= (const volatile Registers &reg)
+	{
+		reg_edi = reg.reg_edi;
+		reg_esi = reg.reg_esi;
+		reg_ebp = reg.reg_ebp;
+		reg_oesp = reg.reg_oesp;
+		reg_ebx = reg.reg_ebx;
+		reg_edx = reg.reg_edx;
+		reg_ecx = reg.reg_ecx;
+		reg_eax = reg.reg_eax;
+		return *this;
+	}	
 };
 
 struct Trapframe {
@@ -70,8 +82,24 @@ struct Trapframe {
 	uintptr_t tf_esp;
 	uint16_t tf_ss;
 	uint16_t tf_padding4;
+	Trapframe& operator= (const volatile Trapframe &tf)
+	{
+		tf_regs = tf.tf_regs;
+		tf_padding1 = tf.tf_padding1;
+		tf_ds = tf.tf_ds;
+		tf_padding2 = tf.tf_padding2;
+		tf_trapno = tf.tf_trapno;
+		tf_err = tf.tf_err;
+		tf_eip = tf.tf_eip;
+		tf_cs = tf.tf_cs;
+		tf_padding3 = tf.tf_padding3;
+		tf_eflags = tf.tf_eflags;
+		tf_esp = tf.tf_esp;
+		tf_ss = tf.tf_ss;
+		tf_padding4 = tf.tf_padding4;
+		return *this;
+	}
 };
-
 struct UTrapframe {
 	// information about the fault
 	uint32_t utf_fault_va;		// virtual address that caused fault
